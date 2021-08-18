@@ -1,0 +1,31 @@
+{
+    "definitions": {},
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "SignUp Schema",
+    "required": [
+      "username",
+      "password",
+      "email"
+    ],
+    "properties": {
+      "username": {
+        "type": "string",
+        "title": "Username",
+        "minLength": 3,
+        "maxLength": 50
+      },
+      "password": {
+        "title": "Password",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50
+      },
+      "email": {
+        "title": "Email",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50
+      }
+    }
+  }

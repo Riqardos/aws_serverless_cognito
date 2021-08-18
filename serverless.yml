@@ -1,0 +1,290 @@
+org: riqardos
+app: richard-python-serverless
+service: rk-cognito-sls
+frameworkVersion: "2"
+
+provider:
+  name: aws
+  runtime: python3.8
+  lambdaHashingVersion: "20201221"
+  region: eu-central-1
+  stage: dev
+  iam:
+    role: loggingParameterRole
+  tracing: # x-ray
+    # apiGateway: true
+    lambda: true
+  layers:
+    - Ref: PythonRequirementsLambdaLayer
+  usagePlan:
+    - free:
+        quota:
+          limit: 5000
+          offset: 2
+          period: MONTH
+        throttle:
+          burstLimit: 200
+          rateLimit: 100
+
+functions:
+  signUp:
+    handler: src/functions/signUp.lambda_handler
+    events:
+      - http:
+          path: /signUp
+          method: post
+          cors: true
+          request:
+            schemas:
+              application/json: ${file(src/schemas/signUp-request.json)}
+  
+  confirmSignUp:
+    handler: src/functions/confirmSignUp.lambda_handler
+    events:
+      - http:
+          path: /confirmSignUp
+          method: post
+          cors: true
+          request:
+            schemas:
+              application/json: ${file(src/schemas/confirmSignUp-request.json)}
+  
+  listUsers:
+    handler: src/functions/listUsers.lambda_handler
+    events:
+      - http:
+          path: /listUsers
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref apiGatewayAuthorizer
+    role: listUsersRole
+  
+  login:
+    handler: src/functions/login.lambda_handler
+    events:
+      - http:
+          path: /login
+          method: post
+          cors: true
+          request:
+            schemas:
+              application/json: ${file(src/schemas/login-request.json)}
+  
+  forgotPassword:
+    handler: src/functions/forgotPassword.lambda_handler
+    events:
+      - http:
+          path: /forgotPassword
+          method: post
+          cors: true
+          request:
+            schemas:
+              application/json: ${file(src/schemas/forgotPassword-request.json)}
+  
+  confirmForgotPassword:
+    handler: src/functions/confirmForgotPassword.lambda_handler
+    events:
+      - http:
+          path: /confirmForgottenPassword
+          method: post
+          cors: true
+          request:
+            schemas:
+              application/json: ${file(src/schemas/confirmForgotPassword-request.json)}
+  
+  refreshToken:
+    handler: src/functions/refreshToken.lambda_handler
+    events:
+      - http:
+          path: /refreshToken
+          method: post
+          cors: true
+          request:
+            schemas:
+              application/json: ${file(src/schemas/refresh-request.json)}
+
+  resendVerificationCode:
+    handler: src/functions/resendVerificationCode.lambda_handler
+    events:
+      - http:
+          path: /resendCode
+          cors: true
+          method: post
+
+resources:
+  Resources:
+    cognitoPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: test-cognito-user-pool
+        AutoVerifiedAttributes:
+          - email
+        Schema:
+          - Name: email
+            AttributeDataType: String
+            Mutable: true
+            Required: true
+
+    cognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: "rk-sls-test"
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+        UserPoolId: !Ref cognitoPool
+        # GenerateSecret: true
+
+    apiGatewayAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        AuthorizerResultTtlInSeconds: 10
+        IdentitySource: method.request.header.Authorization
+        Name: apiGatewayAuthorizer
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        Type: COGNITO_USER_POOLS
+        ProviderARNs:
+          - !GetAtt "cognitoPool.Arn"
+
+    clientAppIdParameter:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Description: clientAppId
+        Name: /${self:service}/clientAppId
+        Tier: Standard
+        Type: String
+        Value: !Ref cognitoUserPoolClient
+
+    cognitoUserPoolIdParameter:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Description: cognitoUserPoolId
+        Name: /${self:service}/cognitoUserPoolId
+        Tier: Standard
+        Type: String
+        Value: !Ref cognitoPool
+
+    GatewayResponse:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: "ApiGatewayRestApi"
+        StatusCode: "401"
+
+    listUsersPolicy:
+      Type: AWS::IAM::ManagedPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ListUsers
+              Resource: !GetAtt "cognitoPool.Arn"
+    loggingPolicy:
+      Type: AWS::IAM::ManagedPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow" # xray permissions (required)
+              Action:
+                - "xray:PutTraceSegments"
+                - "xray:PutTelemetryRecords"
+              Resource:
+                - "*"
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource:
+                - Fn::Sub: arn:aws:logs:${self:service}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${self:provider.stage}*:*
+    
+    SSMPolicy:
+      Type: AWS::IAM::ManagedPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource:
+                - Fn::Sub: arn:aws:ssm:${self:provider.region}:${AWS::AccountId}:parameter/${self:service}/*
+    
+    listUsersRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: ${sls:instanceId}-role-listUsers
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - !Ref listUsersPolicy
+          - !Ref loggingPolicy
+          - !Ref SSMPolicy
+
+    loggingParameterRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: ${sls:instanceId}-role-logging
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - !Ref loggingPolicy
+          - !Ref SSMPolicy
+  
+  Outputs:
+    cognitoPoolArn:
+      Export:
+        Name: cognitoPool-Arn
+      Value:
+        "Fn::GetAtt": [cognitoPool, Arn]
+    cognitoUserPoolId:
+      Export:
+        Name: cognitoUserPoolId
+      Value:
+        "Ref": cognitoPool
+    cognitoUserPoolClientId:
+      Export:
+        Name: cognitoUserPoolClientId
+      Value:
+        "Ref": cognitoUserPoolClient
+    
+    # DOESNT WORK
+    # cognitoUserPoolClientSecret:
+    #   Export:
+    #     Name: cognitoUserPoolClient-ClientSecret
+    #   Value:
+    #     'Fn::GetAtt': [cognitoUserPoolClient, ClientSecret]
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    layer:
+      name: ${self:service}-layer
+      description: "Layer with libraries"
+      compatibleRuntimes:
+        - ${self:provider.runtime}

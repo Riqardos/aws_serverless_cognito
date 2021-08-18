@@ -1,0 +1,22 @@
+{
+    "definitions": {},
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "Confirm signup schema",
+    "required": [
+      "username",
+      "code"
+    ],
+    "properties": {
+      "username": {
+        "type": "string",
+        "title": "Username",
+        "minLength": 3,
+        "maxLength": 50
+      },
+      "code": {
+        "title": "Code",
+        "type": "string"
+      }
+    }
+  }
