@@ -2,7 +2,9 @@ import json
 import boto3
 from src.functions.modules.config import *
 from aws_xray_sdk.core import xray_recorder
-
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 @xray_recorder.capture('resendVerification')
 @cors_headers
 def lambda_handler(event, context):
@@ -13,11 +15,7 @@ def lambda_handler(event, context):
         # SecretHash=get_secret_hash(username),
         Username=username,
     )
-
+    logger.info(f"Resending verification code: {username}")
     return {"statusCode": 200, "body": "OK"}
 
 
-if __name__ == "__main__":
-    print(lambda_handler({
-        "username": "test2",
-    }, "test"))

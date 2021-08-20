@@ -4,16 +4,9 @@
     "type": "object",
     "title": "Refresh token schema",
     "required": [
-      "username",
       "refresh_token"
     ],
     "properties": {
-      "username": {
-        "type": "string",
-        "title": "Username",
-        "minLength": 3,
-        "maxLength": 50
-      },
       "refresh_token": {
         "title": "Refresh token",
         "type": "string"

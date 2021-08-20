@@ -1,90 +1,230 @@
-<!--
-title: 'AWS Simple HTTP Endpoint example in Python'
-description: 'This template demonstrates how to make a simple REST API with Python running on AWS Lambda and API Gateway using the traditional Serverless Framework.'
-layout: Doc
-framework: v2
-platform: AWS
-language: python
-authorLink: 'https://github.com/serverless'
-authorName: 'Serverless, inc.'
-authorAvatar: 'https://avatars1.githubusercontent.com/u/13742415?s=200&v=4'
--->
+# AWS-cognito-serverless
 
-This template demonstrates how to make a simple REST API with Python running on AWS Lambda and API Gateway using the traditional Serverless Framework.
+## Prerequisites
+- installed Node.js
+- AWS CLI, configured credentials
 
-# Serverless Framework Python REST API on AWS
+### Serverless
+in `/serverless-cognito-service`
+```
+npm i -g serverless
+npm i --save serverless-finch
+npm i --save serverless-python-requirements
+```
 
-This template demonstrates how to make a simple REST API with Python running on AWS Lambda and API Gateway using the traditional Serverless Framework.
-
-This template does not include any kind of persistence (database). For a more advanced examples check out the [examples repo](https://github.com/serverless/examples/) which includes DynamoDB, Mongo, Fauna and other examples.
+### React (frontend)
+in `/serverless-cognito-service/frontend`
+```
+npm i
+```
 
 ## Usage
-
-### Deployment
-
-This example is made to work with the Serverless Framework dashboard which includes advanced features like CI/CD, monitoring, metrics, etc.
-
-```
-$ serverless login
-$ serverless deploy
-```
-
-To deploy without the dashboard you will need to remove `org` and `app` fields from the `serverless.yml`, and you won’t have to run `sls login` before deploying.
+1. in `/serverless-cognito-service` run `serverless deploy`
 
 After running deploy, you should see output similar to:
-
-```bash
-Serverless: Packaging service...
-Serverless: Excluding development dependencies...
-Serverless: Creating Stack...
-Serverless: Checking Stack create progress...
-........
-Serverless: Stack create finished...
-Serverless: Uploading CloudFormation file to S3...
-Serverless: Uploading artifacts...
-Serverless: Uploading service aws-python-rest-api.zip file to S3 (711.23 KB)...
-Serverless: Validating template...
-Serverless: Updating Stack...
-Serverless: Checking Stack update progress...
-.................................
-Serverless: Stack update finished...
-Service Information
-service: aws-python-rest-api
-stage: dev
-region: us-east-1
-stack: aws-python-rest-api-dev
-resources: 12
-api keys:
-  None
-endpoints:
-  ANY - https://xxxxxxx.execute-api.us-east-1.amazonaws.com/dev/
-functions:
-  api: aws-python-rest-api-dev-hello
-layers:
-  None
 ```
-
-_Note_: In current form, after deployment, your API is public and can be invoked by anyone. For production deployments, you might want to configure an authorizer. For details on how to do that, refer to [http event docs](https://www.serverless.com/framework/docs/providers/aws/events/apigateway/).
-
-### Invocation
-
-After successful deployment, you can call the created application via HTTP:
-
-```bash
-curl https://xxxxxxx.execute-api.us-east-1.amazonaws.com/dev/
-```
-
-Which should result in response similar to the following (removed `input` content for brevity):
-
-```json
-{
-  "message": "Go Serverless v2.0! Your function executed successfully!",
-  "input": {
+  Service Information
+  service: rk-cognito-sls
+  stage: dev
+  region: eu-central-1
+  stack: rk-cognito-sls-dev
+  resources: 80
+  api keys:
+    None
+  endpoints:
+    POST - https://j12rzplytj.execute-api.eu-central-1.amazonaws.com/dev/signUp
     ...
-  }
-}
+    POST - https://j12rzplytj.execute-api.eu-central-1.amazonaws.com/dev/resendCode
+  functions:
+    signUp: rk-cognito-sls-dev-signUp
+    ...
+    resendVerificationCode: rk-cognito-sls-dev-resendVerificationCode
+  layers:
+    pythonRequirements: arn:aws:lambda:eu-central-1:365087808786:layer:rk-cognito-sls-layer:17
 ```
 
+2. in `/serverless-cognito-service/frontend/src/config.js` change `BASE_URL` to generated URL from output above
+Example:
+```
+export const BASE_URL = 'https://j12rzplytj.execute-api.eu-central-1.amazonaws.com/dev'
+```
+3. in `/serverless-cognito-service/frontend` run `npm run build`
+   `/build` folder with website will be created
+4. in `/serverless-cognito-service` run `serverless client deploy`
+   the website will be deployed into S3 bucket as static
+
+Now you should see output like this:
+```
+...
+Serverless: Configuring policy for bucket...
+Serverless: Retaining existing tags...
+Serverless: Configuring CORS for bucket...
+Serverless: Uploading client files to bucket...
+Serverless: Success! Your site should be available at http://rk-cognito-sls-bucket.s3-website.eu-central-1.amazonaws.com/
+```
+Website location: `http://rk-cognito-sls-bucket.s3-website.eu-central-1.amazonaws.com/`
+
+## Architecture
+![](architecture.png)
+
+### Main services
+
+
+#### Cognito 
+- Sign-up, sing-in, ... [about service](https://aws.amazon.com/cognito/)
+- is defined as resource in `serverless.yml`
+  
+---
+#### AWS Lambda 
+- each function is defined as python script in `/src/functions/..` and refferenced in `functions.<function>.handler`
+- we are using this serverless-plugin `serverless-python-requirements` to create [layer](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html)
+
+Example:
+```python
+from aws_xray_sdk.core import xray_recorder #aws_xray_sdk is stored in lambda layer
+
+@xray_recorder.capture('login') #metrics for X-RAY service
+@cors_headers #decorator to add CORS headers and catches Exceptions
+def lambda_handler(event, context):
+    ...
+```
+---
+#### Api gateway - 
+- is created implicitly, by defing `functions.<function>.events` 
+- Custom authorizer (to be able to refference it to Cognito user pool)
+- ApiGateway Responses (to add CORS headers to not authenticated requests) 
+  
+Implicit ApiGateway definition
+```yaml
+functions:
+  signUp:
+    handler: src/functions/signUp.lambda_handler
+    events:
+      - http:
+          path: /signUp #endpoint path
+          method: post 
+          cors: true #to add OPTIONS method
+          request: 
+            schemas: # schema for JSON validation
+              application/json: ${file(src/schemas/signUp-request.json)}
+  listUsers:
+    handler: src/functions/listUsers.lambda_handler
+    events:
+      - http:
+          path: /listUsers
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref apiGatewayAuthorizer # custom authorizer defined in resources
+    role: listUsersRole # extra role, so we are able to get all users, role defined in resources
+  ...
+```
+
+ApiGateway resources
+```yaml
+resources:
+  Resources:
+    apiGatewayAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        AuthorizerResultTtlInSeconds: 10
+        IdentitySource: method.request.header.Authorization
+        Name: apiGatewayAuthorizer
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        Type: COGNITO_USER_POOLS
+        ProviderARNs:
+          - !GetAtt "cognitoUserPool.Arn"
+
+    gatewayResponse:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: "ApiGatewayRestApi"
+        StatusCode: "401"
+  ...
+```
+---
+#### X-ray and Cloudwach
+- `@xray_recorder` decorator ed to be added in each lambda function in order to use X-ray
+
+Custom Managed policy to allow X-ray and CloudWatch
+```yaml
+loggingPolicy:
+  Type: AWS::IAM::ManagedPolicy
+  Properties:
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: "Allow" # xray permissions (required)
+          Action:
+            - "xray:PutTraceSegments"
+            - "xray:PutTelemetryRecords"
+          Resource:
+            - "*"
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource:
+            - Fn::Sub: arn:aws:logs:${self:provider.region}:${AWS::AccountId}:log-group:/aws/lambda/*:*
+```
+
+#### S3 bucket
+- used for website-hosting
+- to deploy we used `serverless-finch` serverless-plugin
+- it just copies static files from src to dest bucket
+- TODO: CloudFront
+
+![](login_screen.png)
+
+---
+
+#### SSM Parameter store
+- SSMPolicy Managed Policy for lambda functions
+- we storing CognitoClientAppID (gateway to userpool) and CognitoUserPoolId, so lambda can connect to Cognito
+
+```yaml
+resources:
+  Resources:
+    clientAppIdParameter:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Description: clientAppId
+        Name: /${self:service}/clientAppId
+        Tier: Standard
+        Type: String
+        Value: !Ref cognitoUserPoolClient
+
+    cognitoUserPoolIdParameter:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Description: cognitoUserPoolId
+        Name: /${self:service}/cognitoUserPoolId
+        Tier: Standard
+        Type: String
+        Value: !Ref cognitoUserPool
+    
+    SSMPolicy:
+      Type: AWS::IAM::ManagedPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource:
+                - Fn::Sub: arn:aws:ssm:${self:provider.region}:${AWS::AccountId}:parameter/${self:service}/*
+```
+
+---
 ### Local development
 
 You can invoke your function locally by using the following command:
@@ -117,13 +257,3 @@ serverless offline
 ```
 
 To learn more about the capabilities of `serverless-offline`, please refer to its [GitHub repository](https://github.com/dherault/serverless-offline).
-
-### Bundling dependencies
-
-In case you would like to include 3rd party dependencies, you will need to use a plugin called `serverless-python-requirements`. You can set it up by running the following command:
-
-```bash
-serverless plugin install -n serverless-python-requirements
-```
-
-Running the above will automatically add `serverless-python-requirements` to `plugins` section in your `serverless.yml` file and add it as a `devDependency` to `package.json` file. The `package.json` file will be automatically created if it doesn't exist beforehand. Now you will be able to add your dependencies to `requirements.txt` file (`Pipfile` and `pyproject.toml` is also supported but requires additional configuration) and they will be automatically injected to Lambda package during build process. For more details about the plugin's configuration, please refer to [official documentation](https://github.com/UnitedIncome/serverless-python-requirements).

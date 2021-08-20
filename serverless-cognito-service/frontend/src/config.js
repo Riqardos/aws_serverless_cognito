@@ -1,0 +1,1 @@
+export const BASE_URL = 'https://j12rzplytj.execute-api.eu-central-1.amazonaws.com/dev'

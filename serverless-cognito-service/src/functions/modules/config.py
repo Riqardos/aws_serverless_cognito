@@ -2,10 +2,18 @@ import base64
 import hashlib
 import hmac
 import json
-
+import jwt
 import boto3
+import logging
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 CLIENT_SECRET = 'mmnnon82301q2f4ieovs2la34k1edm6h944igrlnh9t8gme8sff'
+
+def get_username_jwt(token):
+    decoded = jwt.decode(token, options={"verify_signature": False}) 
+    return decoded["cognito:username"]
+
 
 def get_parameter(name):
     client = boto3.client('ssm')
@@ -65,6 +73,8 @@ def cors_headers(function):
                 "statusCode": 401, "body": "Invalid code provided, please request a code again."}
         except Exception as e:
             response = {"statusCode": 500, "body": str(e)}
+
+        logger.info(response["body"])
 
         return {
             **response,

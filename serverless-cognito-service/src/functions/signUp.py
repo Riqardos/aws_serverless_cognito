@@ -7,7 +7,9 @@ import botocore.exceptions
 
 from src.functions.modules.config import *
 from aws_xray_sdk.core import xray_recorder 
-
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 @xray_recorder.capture('signUp')
 @cors_headers
 def lambda_handler(event, context):
@@ -33,6 +35,9 @@ def lambda_handler(event, context):
                 'Value': email
             }
         ])
+
+        
+    logger.info(f"Signup: {username}")
 
     return {
         "statusCode": 201,

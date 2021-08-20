@@ -1,4 +1,3 @@
-org: riqardos
 app: richard-python-serverless
 service: rk-cognito-sls
 frameworkVersion: "2"
@@ -12,19 +11,26 @@ provider:
   iam:
     role: loggingParameterRole
   tracing: # x-ray
-    # apiGateway: true
+    apiGateway: true
     lambda: true
   layers:
     - Ref: PythonRequirementsLambdaLayer
-  usagePlan:
-    - free:
-        quota:
-          limit: 5000
-          offset: 2
-          period: MONTH
-        throttle:
-          burstLimit: 200
-          rateLimit: 100
+  apiGateway:
+    usagePlan:
+      - free:
+          quota:
+            limit: 100
+            offset: 0
+            period: DAY
+          throttle:
+            burstLimit: 5
+            rateLimit: 5
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!src/schemas/**'
+    - '!frontend/**'
+    - '!package**'
 
 functions:
   signUp:
@@ -115,10 +121,10 @@ functions:
 
 resources:
   Resources:
-    cognitoPool:
+    cognitoUserPool:
       Type: AWS::Cognito::UserPool
       Properties:
-        UserPoolName: test-cognito-user-pool
+        UserPoolName: ${self:service}-user-pool
         AutoVerifiedAttributes:
           - email
         Schema:
@@ -134,7 +140,7 @@ resources:
         ExplicitAuthFlows:
           - ALLOW_USER_PASSWORD_AUTH
           - ALLOW_REFRESH_TOKEN_AUTH
-        UserPoolId: !Ref cognitoPool
+        UserPoolId: !Ref cognitoUserPool
         # GenerateSecret: true
 
     apiGatewayAuthorizer:
@@ -147,7 +153,7 @@ resources:
           Ref: ApiGatewayRestApi
         Type: COGNITO_USER_POOLS
         ProviderARNs:
-          - !GetAtt "cognitoPool.Arn"
+          - !GetAtt "cognitoUserPool.Arn"
 
     clientAppIdParameter:
       Type: AWS::SSM::Parameter
@@ -165,9 +171,9 @@ resources:
         Name: /${self:service}/cognitoUserPoolId
         Tier: Standard
         Type: String
-        Value: !Ref cognitoPool
+        Value: !Ref cognitoUserPool
 
-    GatewayResponse:
+    gatewayResponse:
       Type: "AWS::ApiGateway::GatewayResponse"
       Properties:
         ResponseParameters:
@@ -187,7 +193,7 @@ resources:
             - Effect: Allow
               Action:
                 - cognito-idp:ListUsers
-              Resource: !GetAtt "cognitoPool.Arn"
+              Resource: !GetAtt "cognitoUserPool.Arn"
     loggingPolicy:
       Type: AWS::IAM::ManagedPolicy
       Properties:
@@ -206,7 +212,7 @@ resources:
                 - logs:CreateLogStream
                 - logs:PutLogEvents
               Resource:
-                - Fn::Sub: arn:aws:logs:${self:service}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${self:provider.stage}*:*
+                - Fn::Sub: arn:aws:logs:${self:provider.region}:${AWS::AccountId}:log-group:/aws/lambda/*:*
     
     SSMPolicy:
       Type: AWS::IAM::ManagedPolicy
@@ -254,21 +260,19 @@ resources:
           - !Ref SSMPolicy
   
   Outputs:
-    cognitoPoolArn:
+    cognitoUserPoolArn:
       Export:
-        Name: cognitoPool-Arn
+        Name: cognitoUserPool-Arn
       Value:
-        "Fn::GetAtt": [cognitoPool, Arn]
+        "Fn::GetAtt": [cognitoUserPool, Arn]
     cognitoUserPoolId:
       Export:
         Name: cognitoUserPoolId
-      Value:
-        "Ref": cognitoPool
+      Value: !Ref cognitoUserPool
     cognitoUserPoolClientId:
       Export:
         Name: cognitoUserPoolClientId
-      Value:
-        "Ref": cognitoUserPoolClient
+      Value: !Ref cognitoUserPoolClient
     
     # DOESNT WORK
     # cognitoUserPoolClientSecret:
@@ -279,6 +283,7 @@ resources:
 
 plugins:
   - serverless-python-requirements
+  - serverless-finch
 
 custom:
   pythonRequirements:
@@ -288,3 +293,6 @@ custom:
       description: "Layer with libraries"
       compatibleRuntimes:
         - ${self:provider.runtime}
+  client:
+    bucketName: ${self:service}-bucket
+    distributionFolder: frontend/build
