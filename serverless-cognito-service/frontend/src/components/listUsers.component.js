@@ -11,7 +11,7 @@ export default function ListUsers() {
         const IdToken = JSON.parse(localStorage.getItem("tokens"));
         if (IdToken) {
             const conf = {
-                url: `${BASE_URL}/listUsers`,
+                url: `${BASE_URL}/users`,
                 method: "GET",
                 timeout: 1000 * 2,
                 headers: {
@@ -21,11 +21,10 @@ export default function ListUsers() {
 
             axios(conf)
                 .then(res => {
-                    console.log(res.data);
                     setUsers(res.data);
                 })
-                .catch(err => {
-                    alert(err);
+                .catch(({response}) => {
+                    alert(response.data.error)
                 })
                 .finally(()=>{
                     setLoading(false);

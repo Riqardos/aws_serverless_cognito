@@ -15,7 +15,7 @@ export default function ForgotPassword() {
         e.preventDefault();
 
         const conf = {
-            url: `${BASE_URL}/forgotPassword`,
+            url: `${BASE_URL}/login/password/reset`,
             method: "POST",
             data: JSON.stringify({ username})
         };
@@ -41,7 +41,7 @@ export default function ForgotPassword() {
         e.preventDefault();
 
         const conf = {
-            url: `${BASE_URL}/confirmForgottenPassword`,
+            url: `${BASE_URL}/login/password/reset/confirm`,
             method: "POST",
             data: JSON.stringify({ username, password, code })
         };
@@ -49,12 +49,12 @@ export default function ForgotPassword() {
         setLoading(true);
 
         axios(conf)
-            .then(res => {
-                alert("Reset OK!");
+            .then(({data}) => {
+                alert(data.message);
                 setRedirect(true);
             })
-            .catch(err => {
-                alert(err.response.data)
+            .catch(({response}) => {
+                alert(response.data.error)
             })
             .finally(() => {
                 setLoading(false);
@@ -82,9 +82,9 @@ export default function ForgotPassword() {
                             {
                                 loading
                                     ?
-                                    <div class="text-center" >
-                                        <div class="spinner-border " role="status">
-                                            <span class="sr-only">Loading...</span>
+                                    <div className="text-center" >
+                                        <div className="spinner-border " role="status">
+                                            <span className="sr-only">Loading...</span>
                                         </div>
                                     </div>
                                     :
@@ -107,9 +107,9 @@ export default function ForgotPassword() {
                             {
                                 loading
                                     ?
-                                    <div class="text-center" >
-                                        <div class="spinner-border " role="status">
-                                            <span class="sr-only">Loading...</span>
+                                    <div className="text-center" >
+                                        <div className="spinner-border " role="status">
+                                            <span className="sr-only">Loading...</span>
                                         </div>
                                     </div>
                                     :

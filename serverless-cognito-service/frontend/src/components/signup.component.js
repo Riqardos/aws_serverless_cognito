@@ -17,18 +17,17 @@ export default function SignUp() {
     const handleResendCode = (e) => {
         e.preventDefault();
         const conf = {
-            url: `${BASE_URL}/resendCode`,
+            url: `${BASE_URL}/signup/resendCode`,
             method: "POST",
             data: JSON.stringify({ username }),
         };
         setLoadingResend(true);
         axios(conf)
-            .then(res => {
-                alert(res.data);
+            .then(({ data }) => {
+                alert(data.message);
             })
-            .catch(err => {
-                console.log(err.response);
-                alert(err.response.data)
+            .catch(({ response }) => {
+                alert(response.data.error)
             })
             .finally(() => {
                 setLoadingResend(false);
@@ -39,19 +38,18 @@ export default function SignUp() {
         e.preventDefault();
 
         const conf = {
-            url: `${BASE_URL}/signUp`,
+            url: `${BASE_URL}/signup`,
             method: "POST",
             data: JSON.stringify({ username, password, email }),
         };
         setLoading(true);
         axios(conf)
-            .then(res => {
+            .then(({ data }) => {
                 setConfirmSignUp(true);
-                alert(res.data);
+                alert(data.message);
             })
-            .catch(err => {
-                console.log(err.response);
-                alert(err.response.data)
+            .catch(({ response }) => {
+                alert(response.data.error)
             })
             .finally(() => {
                 setLoading(false);
@@ -61,7 +59,7 @@ export default function SignUp() {
         e.preventDefault();
 
         const conf = {
-            url: `${BASE_URL}/confirmSignUp`,
+            url: `${BASE_URL}/signup/confirm`,
             method: "POST",
             headers: {
                 'Content-Type': 'application/json',
@@ -71,13 +69,11 @@ export default function SignUp() {
         setLoading(true);
 
         axios(conf)
-            .then(res => {
+            .then(({ response }) => {
                 setRedirect(true);
-                console.log(res.response);
             })
-            .catch(err => {
-                console.log(err.response);
-
+            .catch(({ response }) => {
+                alert(response.data.error)
             })
             .finally(() => {
                 setLoading(false);

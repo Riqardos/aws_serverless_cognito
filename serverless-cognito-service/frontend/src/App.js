@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Link, Route, Switch } from "react-router-dom";
 import '../node_modules/bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
@@ -17,7 +17,7 @@ function App() {
     const token = JSON.parse(localStorage.getItem("tokens"));
     if (token) {
       const conf = {
-        url: `${BASE_URL}/refreshToken`,
+        url: `${BASE_URL}/login/refreshToken`,
         method: "POST",
         data: JSON.stringify({ refresh_token: token['RefreshToken'] })
       };
@@ -28,13 +28,13 @@ function App() {
           alert("Tokens refreshed!");
           localStorage.setItem("tokens", JSON.stringify({ ...token, ...res.data }))
         })
-        .catch(err => {
-          alert(err.response.data)
+        .catch(({ response }) => {
+          alert(response.data.error)
         })
         .finally(() => {
         })
     }
-    else{
+    else {
       alert("No valid token!")
     }
 

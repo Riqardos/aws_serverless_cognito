@@ -19,12 +19,13 @@ export default function Login() {
         setLoading(true);
 
         axios(conf)
-            .then(res => {
+        
+            .then(({data}) => {
                 alert("Logged in!");
-                localStorage.setItem('tokens', JSON.stringify(res.data))
+                localStorage.setItem('tokens', JSON.stringify(data))
             })
-            .catch(err => {
-                alert(err.response.data)
+            .catch(({response}) => {
+                alert(response.data.error)
             })
             .finally(() => {
                 setLoading(false);
@@ -51,9 +52,9 @@ export default function Login() {
                     {
                         loading
                             ?
-                            <div class="text-center" >
-                                <div class="spinner-border " role="status">
-                                    <span class="sr-only">Loading...</span>
+                            <div className="text-center" >
+                                <div className="spinner-border " role="status">
+                                    <span className="sr-only">Loading...</span>
                                 </div>
                             </div>
                             :
