@@ -1,2 +1,2 @@
 aws-xray-sdk==2.4.2
-pyjwt
+pyjwt==2.1.0

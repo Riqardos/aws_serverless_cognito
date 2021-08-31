@@ -2,10 +2,14 @@
   "name": "rk-cognito-sls",
   "description": "",
   "version": "0.1.0",
-  "dependencies": {
-    "serverless-finch": "^2.6.0"
-  },
   "devDependencies": {
+    "serverless-finch": "^2.6.0",
     "serverless-python-requirements": "^5.1.1"
+  },
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy-frontend": "serverless client deploy",
+    "postinstall": "pip3 install -r unit-test-req.txt",
+    "test": "pytest .\\src\\tests\\tests.py --verbose --tb=line --disable-pytest-warnings"
   }
 }
