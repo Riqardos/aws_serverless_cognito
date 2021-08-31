@@ -1,25 +1,41 @@
 # AWS-cognito-serverless
 
 ## Prerequisites
-- installed Node.js
-- AWS CLI, configured credentials
+
+- Node.js (version: ^14.17.1 )
+- AWS CLI (version: ^2.2.13 ) - configured credentials
+- Python (version ^3.8.8 ) 
+
 
 ### Serverless
-in `/serverless-cognito-service`
+Firstly we need to install serverless framework with command `npm i -g serverless`, it is installed globally so we can run it from anywhere.
+
+
+in `/serverless-cognito-service` run `npm i`. It will install serverless plugins ( defined in package.json):
+- serverless-python-requirements
+- serverless-finch
+
+and also it'll install python libraries defined in `unit-test-req.txt`, required for unit test which you can run with `npm run test`
+You should see something like this:
 ```
-npm i -g serverless
-npm i --save serverless-finch
-npm i --save serverless-python-requirements
+src/tests/tests.py::test_login_username_doesnt_exists PASSED                                                                        
+src/tests/tests.py::test_login_username_wrong_password PASSED                                                                        
+src/tests/tests.py::test_login_users PASSED                                                                        
+src/tests/tests.py::test_sign_up_username_exists PASSED                                                                        
+src/tests/tests.py::test_sign_up_new_user PASSED                                                                        
+src/tests/tests.py::test_refresh_token FAILED                                                                        
+...
 ```
 
 ### React (frontend)
-in `/serverless-cognito-service/frontend`
-```
-npm i
-```
+In `/serverless-cognito-service/frontend` is simple react-app-client, which calls and displays API results. To be able to build web-app, we need to install all its dependencies with `npm i`.
+
+To check if it works corretly you can run `npm run start` and the react-app should be opened on localhost.
+
+---
 
 ## Usage
-1. in `/serverless-cognito-service` run `serverless deploy`
+1. in `/serverless-cognito-service` run `npm run deploy`. This command will start deploying our serverless app to AWS cloud. 
 
 After running deploy, you should see output similar to:
 ```
@@ -43,15 +59,16 @@ After running deploy, you should see output similar to:
     pythonRequirements: arn:aws:lambda:eu-central-1:365087808786:layer:rk-cognito-sls-layer:17
 ```
 
-2. in `/serverless-cognito-service/frontend/src/config.js` change `BASE_URL` to generated URL from output above
+2. in `/serverless-cognito-service/frontend/src/config.js` change `BASE_URL` to generated URL from output above. This url will be used, while calling API from react-app. 
+
 Example:
 ```
 export const BASE_URL = 'https://j12rzplytj.execute-api.eu-central-1.amazonaws.com/dev'
 ```
-3. in `/serverless-cognito-service/frontend` run `npm run build`
+3. in `/serverless-cognito-service/frontend` run `npm run build`,
    `/build` folder with website will be created
-4. in `/serverless-cognito-service` run `serverless client deploy`
-   the website will be deployed into S3 bucket as static
+4. in `/serverless-cognito-service` run `npm run deploy-frontend`
+   The website will be deployed into S3 bucket as static web site using `serverless-finch` plugin
 
 Now you should see output like this:
 ```
@@ -77,7 +94,7 @@ Website location: `http://rk-cognito-sls-bucket.s3-website.eu-central-1.amazonaw
 ---
 #### AWS Lambda 
 - each function is defined as python script in `/src/functions/..` and refferenced in `functions.<function>.handler`
-- we are using this serverless-plugin `serverless-python-requirements` to create [layer](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html)
+- we are using this serverless-plugin `serverless-python-requirements` to create the[layer](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html)
 
 Example:
 ```python
@@ -101,7 +118,7 @@ functions:
     handler: src/functions/signUp.lambda_handler
     events:
       - http:
-          path: /signUp #endpoint path
+          path: /signup #endpoint path
           method: post 
           cors: true #to add OPTIONS method
           request: 
@@ -111,7 +128,7 @@ functions:
     handler: src/functions/listUsers.lambda_handler
     events:
       - http:
-          path: /listUsers
+          path: /users
           method: get
           cors: true
           authorizer:
@@ -151,7 +168,10 @@ resources:
 ```
 ---
 #### X-ray and Cloudwach
-- `@xray_recorder` decorator ed to be added in each lambda function in order to use X-ray
+- `@xray_recorder` decorator need to be added in each lambda function in order to use X-ray
+
+In AWS console you should see service map (usage) of lambda functions.
+![](xray.png)
 
 Custom Managed policy to allow X-ray and CloudWatch
 ```yaml
