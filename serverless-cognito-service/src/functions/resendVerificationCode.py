@@ -1,21 +1,18 @@
-import json
-import boto3
 from src.functions.modules.config import *
 from aws_xray_sdk.core import xray_recorder
-import logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-@xray_recorder.capture('resendVerification')
+
+
+@xray_recorder.capture("resendVerification")
 @cors_headers
-def lambda_handler(event, context):
-    client = boto3.client('cognito-idp')
-    username = json.loads(event['body'])['username']
-    response = client.resend_confirmation_code(
-        ClientId=CLIENT_ID,
-        # SecretHash=get_secret_hash(username),
+def handler(req_body, client):
+    username = req_body["username"]
+    client.resend_confirmation_code(
+        ClientId=get_client_id(),
         Username=username,
     )
-    logger.info(f"Resending verification code: {username}")
-    return {"statusCode": 200, "body": "OK"}
+    logger.info(f"User {username} is resending verification code!")
 
-
+    return {
+        "statusCode": 200,
+        "body": {"message": f"User: {username} is resending verification code!"},
+    }

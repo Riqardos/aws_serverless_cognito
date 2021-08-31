@@ -1,32 +1,26 @@
-import json
-import boto3
-from botocore.config import Config
+from aws_xray_sdk.core import xray_recorder
+from aws_xray_sdk.core.recorder import AWSXRayRecorder
 from src.functions.modules.config import *
-from aws_xray_sdk.core import xray_recorder 
-import logging
 
-@xray_recorder.capture('login')
+
+@xray_recorder.capture("login")
 @cors_headers
-def lambda_handler(event, context):
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    client = boto3.client('cognito-idp')
-    req_body = json.loads(event['body'])
-    username = req_body['username']
-    password = req_body['password']
+def handler(req_body, client):
+    username = req_body["username"]
+    password = req_body["password"]
 
-    resp = client.initiate_auth(
-        ClientId=CLIENT_ID,
-        AuthFlow='USER_PASSWORD_AUTH',
+    response = client.initiate_auth(
+        ClientId=get_client_id(),
+        AuthFlow="USER_PASSWORD_AUTH",
         AuthParameters={
-            'USERNAME': username,
-            # 'SECRET_HASH': get_secret_hash(username),
-            'PASSWORD': password,
-        })
+            "USERNAME": username,
+            "PASSWORD": password,
+        },
+    )
 
-    logger.info(f"Login: {username}")
+    logger.info(f"{username} has logged in successfully!")
 
     return {
         "statusCode": 200,
-        "body": json.dumps(resp["AuthenticationResult"])
+        "body": response["AuthenticationResult"],
     }

@@ -1,27 +1,16 @@
-import json
-import boto3
 from aws_xray_sdk.core import xray_recorder
-from botocore.config import Config
 from src.functions.modules.config import *
-import logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
-@xray_recorder.capture('forgotPassword')
+
+@xray_recorder.capture("forgotPassword")
 @cors_headers
-def lambda_handler(event, context):
-    client = boto3.client('cognito-idp')
-    req_body = json.loads(event['body'])
-    username = req_body['username']
+def handler(req_body, client):
+    username = req_body["username"]
 
-    resp = client.forgot_password(
-        ClientId=CLIENT_ID,
-        # SecretHash=get_secret_hash(username),
-        Username=username
-    )
+    response = client.forgot_password(ClientId=get_client_id(), Username=username)
 
     logger.info(f"Forgot password: {username}")
     return {
         "statusCode": 200,
-        "body": json.dumps(resp["CodeDeliveryDetails"])
+        "body": response["CodeDeliveryDetails"],
     }
