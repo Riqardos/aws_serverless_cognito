@@ -31,13 +31,14 @@ package:
     - '!src/schemas/**'
     - '!frontend/**'
     - '!package**'
+    
 
 functions:
   signUp:
-    handler: src/functions/signUp.lambda_handler
+    handler: src/functions/signUp.handler
     events:
       - http:
-          path: /signUp
+          path: /signup/
           method: post
           cors: true
           request:
@@ -45,10 +46,10 @@ functions:
               application/json: ${file(src/schemas/signUp-request.json)}
   
   confirmSignUp:
-    handler: src/functions/confirmSignUp.lambda_handler
+    handler: src/functions/confirmSignUp.handler
     events:
       - http:
-          path: /confirmSignUp
+          path: /signup/confirm/
           method: post
           cors: true
           request:
@@ -56,10 +57,10 @@ functions:
               application/json: ${file(src/schemas/confirmSignUp-request.json)}
   
   listUsers:
-    handler: src/functions/listUsers.lambda_handler
+    handler: src/functions/listUsers.handler
     events:
       - http:
-          path: /listUsers
+          path: /users/
           method: get
           cors: true
           authorizer:
@@ -68,10 +69,10 @@ functions:
     role: listUsersRole
   
   login:
-    handler: src/functions/login.lambda_handler
+    handler: src/functions/login.handler
     events:
       - http:
-          path: /login
+          path: /login/
           method: post
           cors: true
           request:
@@ -79,10 +80,10 @@ functions:
               application/json: ${file(src/schemas/login-request.json)}
   
   forgotPassword:
-    handler: src/functions/forgotPassword.lambda_handler
+    handler: src/functions/forgotPassword.handler
     events:
       - http:
-          path: /forgotPassword
+          path: /login/password/reset/
           method: post
           cors: true
           request:
@@ -90,10 +91,10 @@ functions:
               application/json: ${file(src/schemas/forgotPassword-request.json)}
   
   confirmForgotPassword:
-    handler: src/functions/confirmForgotPassword.lambda_handler
+    handler: src/functions/confirmForgotPassword.handler
     events:
       - http:
-          path: /confirmForgottenPassword
+          path: /login/password/reset/confirm/
           method: post
           cors: true
           request:
@@ -101,10 +102,10 @@ functions:
               application/json: ${file(src/schemas/confirmForgotPassword-request.json)}
   
   refreshToken:
-    handler: src/functions/refreshToken.lambda_handler
+    handler: src/functions/refreshToken.handler
     events:
       - http:
-          path: /refreshToken
+          path: /login/refreshToken/
           method: post
           cors: true
           request:
@@ -112,10 +113,10 @@ functions:
               application/json: ${file(src/schemas/refresh-request.json)}
 
   resendVerificationCode:
-    handler: src/functions/resendVerificationCode.lambda_handler
+    handler: src/functions/resendVerificationCode.handler
     events:
       - http:
-          path: /resendCode
+          path: /signup/resendCode/
           cors: true
           method: post
 
@@ -141,7 +142,6 @@ resources:
           - ALLOW_USER_PASSWORD_AUTH
           - ALLOW_REFRESH_TOKEN_AUTH
         UserPoolId: !Ref cognitoUserPool
-        # GenerateSecret: true
 
     apiGatewayAuthorizer:
       Type: AWS::ApiGateway::Authorizer
@@ -181,7 +181,7 @@ resources:
           gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
         ResponseType: DEFAULT_4XX
         RestApiId:
-          Ref: "ApiGatewayRestApi"
+          Ref: ApiGatewayRestApi
         StatusCode: "401"
 
     listUsersPolicy:
@@ -205,7 +205,7 @@ resources:
                 - "xray:PutTraceSegments"
                 - "xray:PutTelemetryRecords"
               Resource:
-                - "*"
+                - Fn::Sub: arn:aws:xray:${self:provider.region}:${AWS::AccountId}:group/${self:custom.xrayGroupName}
             - Effect: Allow
               Action:
                 - logs:CreateLogGroup
@@ -258,6 +258,11 @@ resources:
         ManagedPolicyArns:
           - !Ref loggingPolicy
           - !Ref SSMPolicy
+    xrayGroup:
+      Type: AWS::XRay::Group
+      Properties: 
+        GroupName: ${self:custom.xrayGroupName}
+        FilterExpression: "duration > 10"
   
   Outputs:
     cognitoUserPoolArn:
@@ -274,18 +279,12 @@ resources:
         Name: cognitoUserPoolClientId
       Value: !Ref cognitoUserPoolClient
     
-    # DOESNT WORK
-    # cognitoUserPoolClientSecret:
-    #   Export:
-    #     Name: cognitoUserPoolClient-ClientSecret
-    #   Value:
-    #     'Fn::GetAtt': [cognitoUserPoolClient, ClientSecret]
-
 plugins:
   - serverless-python-requirements
   - serverless-finch
 
 custom:
+  xrayGroupName: ${self:service}-xray-group
   pythonRequirements:
     dockerizePip: true
     layer:
